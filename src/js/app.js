@@ -4,7 +4,9 @@ import {parseCode} from './code-analyzer';
 let localDic={}
 let globalDic={}
 let codeTo='';
-let userVars=';'
+let userVars='';
+let codeLines="";
+let outputLines="";
 
 $(document).ready(function () {
     $('#codeSubmissionButton').click(() => {
@@ -19,7 +21,8 @@ $(document).ready(function () {
 function getTextFinished(parsedCode,codeToParse,variables){
     globalDic={};localDic={};
     userVars=variables
-    codeTo=codeToParse; 
+    codeTo=codeToParse;
+    codeLines=codeToParse.split('\n');
     for(var i in parsedCode){ // im walking above all the out side.
         if(i==='body'){
             for (var j in parsedCode[i]){// thats the array of all the functions.
@@ -33,13 +36,130 @@ function getTextFinished(parsedCode,codeToParse,variables){
     }
 }
 
-function functionDeclarationFinder (parsedCode){
+function  functionDeclarationFinder (parsedCode){
     // moving the parameter that we get by the thing.
     var partOfInput = smartSplit(userVars);
     for(var i in parsedCode['params']) {
         matchInput2Dic(partOfInput[i].trim(),parsedCode['params'][i]);
     }
-    // moving down the slide and search wat is happening.
+    for (var i in parsedCode['body']['body']){
+        localTreat(parsedCode['body']['body'][i]);
+    }
+    // moving down the slide just copy the sentences down and u all good.
+}
+function localTreat(parsedCode){
+    if(parsedCode['type']==='VariableDeclaration') {
+        declarationLocal(parsedCode['declarations']);
+    }else if (parsedCode['type']==='ExpressionStatement') {
+        assigmentLocal(parsedCode['expression']);
+    }else if(parsedCode['type']==='IfStatement'){
+        IfLocal(parsedCode);
+    }else if(parsedCode['type']==='ReturnStatement'){
+        returnLocal(parsedCode);
+    }else{ // while
+        whileLocal(parsedCode);
+    }
+}
+function declarationLocal(parsedCode){
+    // remove from the line
+    // insert into table.
+    for (var i in parsedCode) {
+        if(parsedCode[i]['init']!=null) {
+            if (parsedCode[i]['init']['type'] === 'ArrayExpression') {
+                for (var j in parsedCode[i]['init']['elements']) {
+                    var name = parsedCode[i]['id']['name'] + '[' + j + ']';
+                    localDic[name] = getString(parsedCode[i]['init']['elements'][j]);
+                }
+            } else {
+                localDic[parsedCode[i]['id']['name']] = getString(parsedCode[i]['init']);
+            }
+        }
+        else {
+            localDic[parsedCode[i]['id']['name']] = '';
+        }
+    }
+}
+function getString (parsedCode){
+    if(parsedCode['type']==='Literal'){
+        return literalFunctionLocal(parsedCode);
+    }
+    if(parsedCode['type']==='Identifier'){
+        return identifierFunctionLocal(parsedCode);
+    }
+    if(parsedCode['type']==='MemberExpression'){
+        return memberExpressionLocal(parsedCode);
+    }
+    if(parsedCode['type']==='UnaryExpression'){
+        return unaryExpressionLocal(parsedCode);
+    }else{
+        return binaryExpressionLocal(parsedCode);
+    }
+}
+function literalFunctionLocal(parsedCode){
+    return parsedCode['raw'];
+}
+
+function identifierFunctionLocal(parsedCode){
+    if(globalDic.hasOwnProperty(parsedCode['name'])){
+        return parsedCode['name'];
+    }else{
+        return localDic[parsedCode['name']];
+    }
+}
+function memberExpressionLocal(parsedCode){
+    var string = parsedCode['object']['name'] + '[' + getInit(parsedCode['property']) + ']';
+    if(globalDic.hasOwnProperty(string)){
+        return string;
+    }else{
+        return localDic[string];
+    }
+}
+function unaryExpressionLocal(parsedCode){
+    return '- '+'('+getString(parsedCode['argument'])+')';
+}
+function binaryExpressionLocal(parsedCode){
+    var left=0,right=0;
+    if(parsedCode['left']['type']==='Literal'){
+        left=literalFunctionLocal(parsedCode['left']);
+    }else if (parsedCode['left']['type']==='Identifier'){
+        left = identifierFunctionLocal(parsedCode['left']);
+    }else {
+        left= binaryExpressionLocal2(parsedCode['left']);
+    }
+    if(parsedCode['right']['type']==='Literal'){
+        right=literalFunctionLocal(parsedCode['right']);
+    }else if (parsedCode['right']['type']==='Identifier'){
+        right = identifierFunctionLocal(parsedCode['right']);
+    }
+    else {
+        right = binaryExpressionLocal2(parsedCode['right']);
+    }
+    return '('+left+' '+parsedCode['operator']+' '+right+')';
+}
+function binaryExpressionLocal2 (parsedCode){
+    if(parsedCode['type']==='MemberExpression'){
+        return memberExpressionLocal(parsedCode);
+    }else if(parsedCode['type']==='UnaryExpression'){
+        return unaryExpressionLocal(parsedCode);
+    }else { // binary expression
+        return '('+getString(parsedCode['left'])+' '+parsedCode['operator']+' '+getString(parsedCode['right'])+')';
+    }
+}
+function assigmentLocal(parsedCode){
+    // check left and right and add to the table accordingly
+    var left = findWhatLeftGlobal(parsedCode['left']);
+    var right = getString(parsedCode['right']);
+    localDic[left]=right;
+}
+function IfLocal(parsedCode){
+    // change the local
+}
+function returnLocal(parsedCode){
+    var string =getString(parsedCode['argument']);
+
+}
+function whileLocal(parsedCode){
+
 }
 function smartSplit(input){
     var array='',flag=false,ans=[],splitted = input.split(',');
@@ -65,9 +185,9 @@ function matchInput2Dic(value,parsedCode){
     }else if(value.includes('\'') || value.includes('"')){ // string
         value = value.substring(1, value.length-1);
         globalDic[parsedCode['name']]=value;
-    }else if(isNaN(value)){// true / false
+    }else if(isNaN(value)){// number
         checkIfTrueOrFalse(value,parsedCode);
-    }else{// number
+    }else{// true / false
         turnToNumber(value,parsedCode);
     }
 }
@@ -86,10 +206,10 @@ function arrayHandler (value,parsedCode){
         if(partOfInput[i].includes('\'') || partOfInput[i].includes('"')){ // string
             value = partOfInput[i].substring(1, partOfInput[i].length-1);
             globalDic[parsedCode['name']+'['+i+']']=value;
-        }else if(isNaN(value)){// true / false
-            checkIfTrueOrFalseArr(i,value,parsedCode);
+        }else if(isNaN(partOfInput[i])){// true / false
+            checkIfTrueOrFalseArr(i,partOfInput[i],parsedCode);
         }else{// number
-            turnToNumberArr(i,value,parsedCode);
+            turnToNumberArr(i,partOfInput[i],parsedCode);
         }
     }
 }
@@ -185,13 +305,55 @@ function literalFunctionGlobal(parsedCode){
     return parsedCode['value'];
 }
 function binaryExpressionGlobal(parsedCode){
+    var left=0,right=0;
+    if(parsedCode['left']['type']==='Literal'){
+        left=parsedCode['left']['value'];
+    }else if (parsedCode['left']['type']==='Identifier'){
+        left = globalDic[parsedCode['left']['name']];
+    }else {
+        left= binaryExpressionGlobal2(parsedCode['left']);
+    }
+    if(parsedCode['right']['type']==='Literal'){
+        right=parsedCode['right']['value'];
+    }else if (parsedCode['right']['type']==='Identifier'){
+        right = globalDic[parsedCode['right']['name']];
+    }
+    else {
+        right = binaryExpressionGlobal2(parsedCode['right']);
+    }
+    return getValueGlobal(left,right,parsedCode['operator']);
 
+}
+
+function binaryExpressionGlobal2(parsedCode){
+    if(parsedCode['type']==='MemberExpression'){
+        var string = parsedCode['object']['name'] + '[' + getInit(parsedCode['property']) + ']';
+        return globalDic[string];
+    }else if(parsedCode['type']==='UnaryExpression'){
+        return -1 * getInit(parsedCode['argument']);
+    }else { // binary expression
+        return getValueGlobal(getInit(parsedCode['left']),getInit(parsedCode['right']),parsedCode['operator']);
+    }
+}
+
+function getValueGlobal(left,right,operator){
+    switch (operator){
+    case '+':
+        return left+right;
+    case '-':
+        return left-right;
+    case '*':
+        return left*right;
+    case '/':
+        return left/right;
+    }
 }
 function unaryExpressionGlobal(parsedCode){
-
+    return -1 * getInit(parsedCode['argument']);
 }
 function memberExpressionGlobal(parsedCode){
-    // return globalDic[parsedCode['name']];
+    var string = parsedCode['object']['name'] + '[' + getInit(parsedCode['property']) + ']';
+    return globalDic[string];
 }
 function identifierFunctionGlobal(parsedCode){
     return globalDic[parsedCode['name']];
