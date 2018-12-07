@@ -53,7 +53,7 @@ function localTreat(parsedCode){
     }else if (parsedCode['type']==='ExpressionStatement') {
         assigmentLocal(parsedCode['expression']);
     }else if(parsedCode['type']==='IfStatement'){
-        IfLocal(parsedCode);
+        IfLocal(parsedCode,'If statement');
     }else if(parsedCode['type']==='ReturnStatement'){
         returnLocal(parsedCode);
     }else{ // while
@@ -148,18 +148,130 @@ function binaryExpressionLocal2 (parsedCode){
 function assigmentLocal(parsedCode){
     // check left and right and add to the table accordingly
     var left = findWhatLeftGlobal(parsedCode['left']);
-    var right = getString(parsedCode['right']);
-    localDic[left]=right;
+    var rights = getString(parsedCode['right']);
+    var rightv = getInit(parsedCode['right']);
+    if(globalDic.hasOwnProperty(left)){
+        globalDic[left]=rightv;
+    }else{
+        localDic[left]=rights;
+    }
 }
-function IfLocal(parsedCode){
-    // change the local
+function IfLocal (parsedCode)
+{
+    var IfTest=getString(parsedCode['test']);
+    if(parsedCode['consequent']['type']==='BlockStatement'){
+        for (var j in parsedCode['consequent']['body']){
+            localTreat(['consequent']['body'][j]);
+        }
+    }
+    else{
+        localTreat(parsedCode['consequent']);
+    }
+    if(parsedCode['alternate']!=null){
+        elseIfStatementFinder(parsedCode['alternate']);
+    }
+}
+
+function elseIfStatementFinder (parsedCode)
+{
+    var IfTest=getString(parsedCode['test']);
+    if(parsedCode['type']==='IfStatement'){ // case of else if
+        IfLocal(parsedCode,'Else If Statement');} // e for else if
+    else{ // case of else
+        if(parsedCode['type']==='BlockStatement'){// check if block or not {}....
+            //alert('normal else row '+elseRow);
+            for (var j in parsedCode['body']){
+                localTreat(parsedCode['body'][j]);}
+        }
+        else{
+            //alert('normal else row '+elseRow);
+            localTreat(parsedCode);}
+    }
 }
 function returnLocal(parsedCode){
     var string =getString(parsedCode['argument']);
-
+    var newLine='return '+string;
 }
-function whileLocal(parsedCode){
+function symbolChange(parsedCode){
+    if(parsedCode['type']==='Literal'){
+        return literalFunctionSymbol(parsedCode);
+    }
+    if(parsedCode['type']==='Identifier'){
+        return identifierFunctionSymbol(parsedCode);
+    }
+    if(parsedCode['type']==='MemberExpression'){
+        return memberExpressionSymbol(parsedCode);
+    }
+    if(parsedCode['type']==='UnaryExpression'){
+        return unaryExpressionSymbol(parsedCode);
+    }else{
+        return binaryExpressionSymbol(parsedCode);
+    }
+}
+function literalFunctionSymbol(parsedCode){
+    return parsedCode['raw'];
+}
+function identifierFunctionSymbol(parsedCode){
+    var name = parsedCode['name'];
+    if(globalDic.hasOwnProperty(name)){
+        return name;
+    }else{
+        return localDic[name];
+    }
+}
+function memberExpressionSymbol(parsedCode){
+    var name = getString(parsedCode);
+    if(globalDic.hasOwnProperty(name)){
+        return name;
+    }else{
+        return localDic[name];
+    }
+}
+function unaryExpressionSymbol(parsedCode){
+    return '- '+ symbolChange(parsedCode['argument']);
+}
+function binaryExpressionSymbol(parsedCode){
+    var left=0,right=0;
+    if(parsedCode['left']['type']==='Literal'){
+        left=literalFunctionSymbol(parsedCode['left']);
+    }else if (parsedCode['left']['type']==='Identifier'){
+        left = identifierFunctionSymbol(parsedCode['left']);
+    }else {
+        left= binaryExpressionSymbol2(parsedCode['left']);
+    }
+    if(parsedCode['right']['type']==='Literal'){
+        right=literalFunctionSymbol(parsedCode['right']);
+    }else if (parsedCode['right']['type']==='Identifier'){
+        right = identifierFunctionSymbol(parsedCode['right']);
+    }
+    else {
+        right = binaryExpressionSymbol2(parsedCode['right']);
+    }
+    return '('+left+' '+parsedCode['operator']+' '+right+')';
+}
+function binaryExpressionSymbol2 (parsedCode){
+    if(parsedCode['type']==='MemberExpression'){
+        return memberExpressionSymbol(parsedCode);
+    }else if(parsedCode['type']==='UnaryExpression'){
+        return unaryExpressionSymbol(parsedCode);
+    }else { // binary expression
+        return symbolChange(parsedCode['left'])+parsedCode['operator']+symbolChange(parsedCode['right']);
+    }
+}
 
+
+function whileLocal(parsedCode){
+    var whileTest;
+    whileTest=getString(parsedCode['test']);
+    //alert(whileLocation + whileTest)
+    if(parsedCode['body']['type']==='BlockStatement'){
+        for (var j in parsedCode['body']['body']){
+            localTreat(parsedCode['body']['body'][j]);
+        }
+    }
+    else{
+        localTreat(parsedCode['body']);
+    }
 }
 function smartSplit(input){
     var array='',flag=false,ans=[],splitted = input.split(',');
