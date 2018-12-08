@@ -7,6 +7,7 @@ let codeTo='';
 let userVars='';
 let codeLines="";
 let outputLines="";
+let functionRow=0;
 
 $(document).ready(function () {
     $('#codeSubmissionButton').click(() => {
@@ -19,7 +20,7 @@ $(document).ready(function () {
 });
 
 function getTextFinished(parsedCode,codeToParse,variables){
-    globalDic={};localDic={};
+    globalDic={};localDic={};functionRow=0;
     userVars=variables
     codeTo=codeToParse;
     codeLines=codeToParse.split('\n');
@@ -30,6 +31,7 @@ function getTextFinished(parsedCode,codeToParse,variables){
                     functionDeclarationFinder(parsedCode[i][j]);
                 } else {
                     globalTreat(parsedCode[i][j]);
+                    functionRow++;
                 }
             }
         }
@@ -38,6 +40,7 @@ function getTextFinished(parsedCode,codeToParse,variables){
 
 function  functionDeclarationFinder (parsedCode){
     // moving the parameter that we get by the thing.
+    alert (codeLines[functionRow]);
     var partOfInput = smartSplit(userVars);
     for(var i in parsedCode['params']) {
         matchInput2Dic(partOfInput[i].trim(),parsedCode['params'][i]);
@@ -53,7 +56,7 @@ function localTreat(parsedCode){
     }else if (parsedCode['type']==='ExpressionStatement') {
         assigmentLocal(parsedCode['expression']);
     }else if(parsedCode['type']==='IfStatement'){
-        IfLocal(parsedCode,'If statement');
+        IfLocal(parsedCode,'if ');
     }else if(parsedCode['type']==='ReturnStatement'){
         returnLocal(parsedCode);
     }else{ // while
@@ -115,7 +118,7 @@ function memberExpressionLocal(parsedCode){
     }
 }
 function unaryExpressionLocal(parsedCode){
-    return '- '+'('+getString(parsedCode['argument'])+')';
+    return parsedCode['operator']+' ('+getString(parsedCode['argument'])+')';
 }
 function binaryExpressionLocal(parsedCode){
     var left=0,right=0;
@@ -152,45 +155,61 @@ function assigmentLocal(parsedCode){
     var rightv = getInit(parsedCode['right']);
     if(globalDic.hasOwnProperty(left)){
         globalDic[left]=rightv;
+        alert(left+' = '+rights+';');
     }else{
         localDic[left]=rights;
     }
 }
-function IfLocal (parsedCode)
+function IfLocal (parsedCode,ifelse)
 {
     var IfTest=getString(parsedCode['test']);
+    var eval1 = myEval(parseCode(IfTest)['body'][0]['expression']);
     if(parsedCode['consequent']['type']==='BlockStatement'){
+        alert(ifelse+IfTest+' {');
         for (var j in parsedCode['consequent']['body']){
-            localTreat(['consequent']['body'][j]);
+            localTreat(parsedCode['consequent']['body'][j]);
         }
+        alert('}');
     }
     else{
+        alert(ifelse+IfTest+' ');
         localTreat(parsedCode['consequent']);
     }
     if(parsedCode['alternate']!=null){
         elseIfStatementFinder(parsedCode['alternate']);
     }
 }
-
+function myEval(parsedCode){
+    if(parsedCode['type']==='UnaryExpression'){
+        return !(myEval(parsedCode['argument']));
+    }else{
+        var left =getInit(parsedCode['left']);
+        var right=getInit(parsedCode['right']);
+        var ans = eval(left +parsedCode['operator']+right);
+        return ans;
+    }
+}
 function elseIfStatementFinder (parsedCode)
 {
-    var IfTest=getString(parsedCode['test']);
     if(parsedCode['type']==='IfStatement'){ // case of else if
-        IfLocal(parsedCode,'Else If Statement');} // e for else if
+        var IfTest=getString(parsedCode['test']);
+        IfLocal(parsedCode,'else if ');} // e for else if
     else{ // case of else
         if(parsedCode['type']==='BlockStatement'){// check if block or not {}....
-            //alert('normal else row '+elseRow);
+            alert('else {');
             for (var j in parsedCode['body']){
                 localTreat(parsedCode['body'][j]);}
+            alert('}');
         }
         else{
-            //alert('normal else row '+elseRow);
+            alert('else');
             localTreat(parsedCode);}
     }
 }
 function returnLocal(parsedCode){
     var string =getString(parsedCode['argument']);
-    var newLine='return '+string;
+    var newLine='return '+string+';';
+    alert(newLine);
 }
 function symbolChange(parsedCode){
     if(parsedCode['type']==='Literal'){
@@ -265,11 +284,14 @@ function whileLocal(parsedCode){
     whileTest=getString(parsedCode['test']);
     //alert(whileLocation + whileTest)
     if(parsedCode['body']['type']==='BlockStatement'){
+        alert('while '+whileTest+' {');
         for (var j in parsedCode['body']['body']){
             localTreat(parsedCode['body']['body'][j]);
         }
+        alert('}');
     }
     else{
+        alert('while '+whileTest);
         localTreat(parsedCode['body']);
     }
 }
@@ -366,6 +388,7 @@ function assigmentGlobal(parsedCode){
     var left = findWhatLeftGlobal(parsedCode['expression']['left']);
     var right = getInit(parsedCode['expression']['right']);
     globalDic[left]=right;
+    alert(left+' = '+right+';');
 }
 
 
@@ -393,6 +416,7 @@ function declarationGlobal(parsedCode){
             globalDic[parsedCode[i]['id']['name']] = 0;
         }
     }
+    alert(codeLines[functionRow]);
 }
 
 function getInit(parsedCode){
