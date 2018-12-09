@@ -1,12 +1,11 @@
 import $ from 'jquery';
 import {parseCode} from './code-analyzer';
 
-let localDic={}
-let globalDic={}
-let codeTo='';
+let localDic={};
+let globalDic={};
 let userVars='';
-let codeLines="";
-let outputLines="";
+let codeLines='';
+let outputLines=[];
 let functionRow=0;
 
 $(document).ready(function () {
@@ -14,19 +13,20 @@ $(document).ready(function () {
         let codeToParse = $('#codePlaceholder').val();
         let vars= $('#parameterInput').val();
         let parsedCode = parseCode(codeToParse);
-        getTextFinished(parsedCode,codeToParse,vars);
-        $('#parsedCode').val(JSON.stringify(parsedCode, null, 2));
+        var table = document.getElementById('grandTable');
+        var row = table.rows[1];
+        var cell = row.cells[1];
+        cell.innerHTML=getTextFinished(parsedCode,codeToParse,vars);
     });
 });
 
 function getTextFinished(parsedCode,codeToParse,variables){
-    globalDic={};localDic={};functionRow=0;
-    userVars=variables
-    codeTo=codeToParse;
+    globalDic={};localDic={};functionRow=0;outputLines=[];
+    userVars=variables;
     codeLines=codeToParse.split('\n');
-    for(var i in parsedCode){ // im walking above all the out side.
-        if(i==='body'){
-            for (var j in parsedCode[i]){// thats the array of all the functions.
+    for(var i in parsedCode) { // im walking above all the out side.
+        if (i === 'body') {
+            for (var j in parsedCode[i]) {// thats the array of all the functions.
                 if (parsedCode[i][j]['type'] === 'FunctionDeclaration') {
                     functionDeclarationFinder(parsedCode[i][j]);
                 } else {
@@ -36,18 +36,34 @@ function getTextFinished(parsedCode,codeToParse,variables){
             }
         }
     }
+    return textToDisplay();
 }
-
+function textToDisplay(){
+    var hugeString='';
+    var tableLength = outputLines.length;
+    for (var i = 0; i < tableLength; i++) {
+        if(outputLines[i].includes('~')){// green
+            hugeString = hugeString +'<p style=\'background-color:#4ff955\'>'+ outputLines[i].substring(0, outputLines[i].length-1) + '</p> \n';
+        }else if(outputLines[i].includes('@')){// red
+            hugeString = hugeString +'<p style=\'background-color:#fc3320\'>'+ outputLines[i].substring(0, outputLines[i].length-1) + '</p> \n';
+        }else {
+            hugeString = hugeString +'<p>'+ outputLines[i] + '</p>\n';
+        }
+    }
+    return hugeString;
+}
 function  functionDeclarationFinder (parsedCode){
     // moving the parameter that we get by the thing.
-    alert (codeLines[functionRow]);
+    outputLines.push (codeLines[functionRow]);
+    functionRow++;
     var partOfInput = smartSplit(userVars);
     for(var i in parsedCode['params']) {
         matchInput2Dic(partOfInput[i].trim(),parsedCode['params'][i]);
     }
-    for (var i in parsedCode['body']['body']){
-        localTreat(parsedCode['body']['body'][i]);
+    for (var j in parsedCode['body']['body']){
+        localTreat(parsedCode['body']['body'][j]);
     }
+    functionRow++;
     // moving down the slide just copy the sentences down and u all good.
 }
 function localTreat(parsedCode){
@@ -65,7 +81,7 @@ function localTreat(parsedCode){
 }
 function declarationLocal(parsedCode){
     // remove from the line
-    // insert into table.
+    functionRow++;
     for (var i in parsedCode) {
         if(parsedCode[i]['init']!=null) {
             if (parsedCode[i]['init']['type'] === 'ArrayExpression') {
@@ -150,34 +166,37 @@ function binaryExpressionLocal2 (parsedCode){
 }
 function assigmentLocal(parsedCode){
     // check left and right and add to the table accordingly
+    functionRow++;
     var left = findWhatLeftGlobal(parsedCode['left']);
     var rights = getString(parsedCode['right']);
     var rightv = getInit(parsedCode['right']);
     if(globalDic.hasOwnProperty(left)){
         globalDic[left]=rightv;
-        alert(left+' = '+rights+';');
+        outputLines.push(left+' = '+rights+';');
     }else{
         localDic[left]=rights;
     }
 }
 function IfLocal (parsedCode,ifelse)
 {
-    var IfTest=getString(parsedCode['test']);
-    var eval1 = myEval(parseCode(IfTest)['body'][0]['expression']);
+    var IfTest=getString(parsedCode['test']),color='';
+    color =booleanToColor(myEval(parseCode(IfTest)['body'][0]['expression']));        functionRow++;
     if(parsedCode['consequent']['type']==='BlockStatement'){
-        alert(ifelse+IfTest+' {');
+        outputLines.push(ifelse+' ('+IfTest+') {' + color);
         for (var j in parsedCode['consequent']['body']){
-            localTreat(parsedCode['consequent']['body'][j]);
-        }
-        alert('}');
-    }
+            localTreat(parsedCode['consequent']['body'][j]);}
+        outputLines.push('}');functionRow++;}
     else{
-        alert(ifelse+IfTest+' ');
-        localTreat(parsedCode['consequent']);
-    }
+        outputLines.push(ifelse+' ('+IfTest+')'+color);
+        localTreat(parsedCode['consequent']);}
     if(parsedCode['alternate']!=null){
         elseIfStatementFinder(parsedCode['alternate']);
     }
+}
+function booleanToColor(bool){
+    if(bool)
+        return '~'; // green is mapped to ~
+    return '@'; // red is mapped to @
 }
 function myEval(parsedCode){
     if(parsedCode['type']==='UnaryExpression'){
@@ -192,106 +211,40 @@ function myEval(parsedCode){
 function elseIfStatementFinder (parsedCode)
 {
     if(parsedCode['type']==='IfStatement'){ // case of else if
-        var IfTest=getString(parsedCode['test']);
         IfLocal(parsedCode,'else if ');} // e for else if
     else{ // case of else
+        functionRow++;
         if(parsedCode['type']==='BlockStatement'){// check if block or not {}....
-            alert('else {');
+            outputLines.push('else {');
             for (var j in parsedCode['body']){
                 localTreat(parsedCode['body'][j]);}
-            alert('}');
+            outputLines.push('}');        functionRow++;
         }
         else{
-            alert('else');
+            outputLines.push('else');
             localTreat(parsedCode);}
     }
 }
 function returnLocal(parsedCode){
     var string =getString(parsedCode['argument']);
     var newLine='return '+string+';';
-    alert(newLine);
+    functionRow++;
+    outputLines.push(newLine);
 }
-function symbolChange(parsedCode){
-    if(parsedCode['type']==='Literal'){
-        return literalFunctionSymbol(parsedCode);
-    }
-    if(parsedCode['type']==='Identifier'){
-        return identifierFunctionSymbol(parsedCode);
-    }
-    if(parsedCode['type']==='MemberExpression'){
-        return memberExpressionSymbol(parsedCode);
-    }
-    if(parsedCode['type']==='UnaryExpression'){
-        return unaryExpressionSymbol(parsedCode);
-    }else{
-        return binaryExpressionSymbol(parsedCode);
-    }
-}
-function literalFunctionSymbol(parsedCode){
-    return parsedCode['raw'];
-}
-function identifierFunctionSymbol(parsedCode){
-    var name = parsedCode['name'];
-    if(globalDic.hasOwnProperty(name)){
-        return name;
-    }else{
-        return localDic[name];
-    }
-}
-function memberExpressionSymbol(parsedCode){
-    var name = getString(parsedCode);
-    if(globalDic.hasOwnProperty(name)){
-        return name;
-    }else{
-        return localDic[name];
-    }
-}
-function unaryExpressionSymbol(parsedCode){
-    return '- '+ symbolChange(parsedCode['argument']);
-}
-function binaryExpressionSymbol(parsedCode){
-    var left=0,right=0;
-    if(parsedCode['left']['type']==='Literal'){
-        left=literalFunctionSymbol(parsedCode['left']);
-    }else if (parsedCode['left']['type']==='Identifier'){
-        left = identifierFunctionSymbol(parsedCode['left']);
-    }else {
-        left= binaryExpressionSymbol2(parsedCode['left']);
-    }
-    if(parsedCode['right']['type']==='Literal'){
-        right=literalFunctionSymbol(parsedCode['right']);
-    }else if (parsedCode['right']['type']==='Identifier'){
-        right = identifierFunctionSymbol(parsedCode['right']);
-    }
-    else {
-        right = binaryExpressionSymbol2(parsedCode['right']);
-    }
-    return '('+left+' '+parsedCode['operator']+' '+right+')';
-}
-function binaryExpressionSymbol2 (parsedCode){
-    if(parsedCode['type']==='MemberExpression'){
-        return memberExpressionSymbol(parsedCode);
-    }else if(parsedCode['type']==='UnaryExpression'){
-        return unaryExpressionSymbol(parsedCode);
-    }else { // binary expression
-        return symbolChange(parsedCode['left'])+parsedCode['operator']+symbolChange(parsedCode['right']);
-    }
-}
-
-
 function whileLocal(parsedCode){
     var whileTest;
     whileTest=getString(parsedCode['test']);
-    //alert(whileLocation + whileTest)
+    functionRow++;
     if(parsedCode['body']['type']==='BlockStatement'){
-        alert('while '+whileTest+' {');
+        outputLines.push('while ('+whileTest+') {');
         for (var j in parsedCode['body']['body']){
             localTreat(parsedCode['body']['body'][j]);
         }
-        alert('}');
+        outputLines.push('}');
+        functionRow++;
     }
     else{
-        alert('while '+whileTest);
+        outputLines.push('while ('+whileTest+')');
         localTreat(parsedCode['body']);
     }
 }
@@ -388,7 +341,7 @@ function assigmentGlobal(parsedCode){
     var left = findWhatLeftGlobal(parsedCode['expression']['left']);
     var right = getInit(parsedCode['expression']['right']);
     globalDic[left]=right;
-    alert(left+' = '+right+';');
+    outputLines.push(left+' = '+right+';');
 }
 
 
@@ -416,7 +369,7 @@ function declarationGlobal(parsedCode){
             globalDic[parsedCode[i]['id']['name']] = 0;
         }
     }
-    alert(codeLines[functionRow]);
+    outputLines.push(codeLines[functionRow]);
 }
 
 function getInit(parsedCode){
