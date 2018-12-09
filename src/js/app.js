@@ -63,6 +63,7 @@ function  functionDeclarationFinder (parsedCode){
     for (var j in parsedCode['body']['body']){
         localTreat(parsedCode['body']['body'][j]);
     }
+    outputLines.push ('}');
     functionRow++;
     // moving down the slide just copy the sentences down and u all good.
 }
