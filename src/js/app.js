@@ -5,6 +5,8 @@ let localDic={};
 let globalDic={};
 let userVars='';
 let codeLines='';
+let insideTrueIf=true;
+let stopColor=false;
 let outputLines=[];
 let functionRow=0;
 
@@ -21,7 +23,7 @@ $(document).ready(function () {
 });
 
 function getTextFinished(parsedCode,codeToParse,variables){
-    globalDic={};localDic={};functionRow=0;outputLines=[];
+    globalDic={};localDic={};functionRow=0;outputLines=[];stopColor=false;insideTrueIf=true;
     userVars=variables;
     codeLines=codeToParse.split('\n');
     for(var i in parsedCode) { // im walking above all the out side.
@@ -47,7 +49,7 @@ function textToDisplay(){
         }else if(outputLines[i].includes('@')){// red
             hugeString = hugeString +'<p style=\'background-color:#fc3320\'>'+ outputLines[i].substring(0, outputLines[i].length-1) + '</p> \n';
         }else {
-            hugeString = hugeString +'<p>'+ outputLines[i] + '</p>\n';
+            hugeString = hugeString +'<p>'+ outputLines[i] + '</p> \n';
         }
     }
     return hugeString;
@@ -73,7 +75,7 @@ function localTreat(parsedCode){
     }else if (parsedCode['type']==='ExpressionStatement') {
         assigmentLocal(parsedCode['expression']);
     }else if(parsedCode['type']==='IfStatement'){
-        IfLocal(parsedCode,'if ');
+        IfLocal(parsedCode,'if ',true);
     }else if(parsedCode['type']==='ReturnStatement'){
         returnLocal(parsedCode);
     }else{ // while
@@ -178,10 +180,12 @@ function assigmentLocal(parsedCode){
         localDic[left]=rights;
     }
 }
-function IfLocal (parsedCode,ifelse)
+function IfLocal (parsedCode,ifelse,shouldIColor)
 {
+    var saveLocal={},saveGlobal={};
+    saveLocal=copyDic(localDic);saveGlobal=copyDic(globalDic);
     var IfTest=getString(parsedCode['test']),color='';
-    color =booleanToColor(myEval(parseCode(IfTest)['body'][0]['expression']));        functionRow++;
+    color =booleanToColor(myEval(parseCode(IfTest)['body'][0]['expression']));        functionRow++;    color=checkIfColor(shouldIColor,color);
     if(parsedCode['consequent']['type']==='BlockStatement'){
         outputLines.push(ifelse+' ('+IfTest+') {' + color);
         for (var j in parsedCode['consequent']['body']){
@@ -190,9 +194,34 @@ function IfLocal (parsedCode,ifelse)
     else{
         outputLines.push(ifelse+' ('+IfTest+')'+color);
         localTreat(parsedCode['consequent']);}
+    localDic=saveLocal;globalDic=saveGlobal;
     if(parsedCode['alternate']!=null){
-        elseIfStatementFinder(parsedCode['alternate']);
+        elseIfStatementFinder(parsedCode['alternate'],color);
     }
+    localDic=saveLocal;globalDic=saveGlobal;
+}
+function checkIfColor(shouldIColor,color){
+    if(stopColor===true)
+    {
+        return '';
+    }
+    if(shouldIColor===false){
+        return '';
+    }
+    if(color==='~'){
+        insideTrueIf=true;
+    }
+    else{
+        insideTrueIf=false;
+    }
+    return color;
+}
+function copyDic(Dic){
+    var ans ={};
+    for (var key in Dic) {
+        ans[key]=Dic[key];
+    }
+    return ans;
 }
 function booleanToColor(bool){
     if(bool)
@@ -209,10 +238,14 @@ function myEval(parsedCode){
         return ans;
     }
 }
-function elseIfStatementFinder (parsedCode)
+function elseIfStatementFinder (parsedCode,color)
 {
     if(parsedCode['type']==='IfStatement'){ // case of else if
-        IfLocal(parsedCode,'else if ');} // e for else if
+        if(color==='~'){
+            IfLocal(parsedCode,'else if ',false); // e for else if
+        }else{
+            IfLocal(parsedCode,'else if ',true);} // e for else if
+    }
     else{ // case of else
         functionRow++;
         if(parsedCode['type']==='BlockStatement'){// check if block or not {}....
@@ -220,8 +253,7 @@ function elseIfStatementFinder (parsedCode)
             for (var j in parsedCode['body']){
                 localTreat(parsedCode['body'][j]);}
             outputLines.push('}');        functionRow++;
-        }
-        else{
+        } else{
             outputLines.push('else');
             localTreat(parsedCode);}
     }
@@ -230,6 +262,9 @@ function returnLocal(parsedCode){
     var string =getString(parsedCode['argument']);
     var newLine='return '+string+';';
     functionRow++;
+    if(insideTrueIf){
+        stopColor=true;
+    }
     outputLines.push(newLine);
 }
 function whileLocal(parsedCode){
