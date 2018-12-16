@@ -315,4 +315,16 @@ describe('The javascript parser', () => {
             '<p>}</p> \n'
         );
     });
+
+    it('checking member item.',()=>{
+        assert.equal(
+            getTextFinished('function gg(a,b){\n' +
+                'let w=1+2+3+4;\n' +
+                'return a[w];\n' +
+                '}','[1,2,3,4],6'),
+            '<p>function gg(a,b){</p> \n' +
+            '<p>return a[(((1 + 2) + 3) + 4)];</p> \n' +
+            '<p>}</p> \n'
+        );
+    });
 });

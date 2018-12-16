@@ -124,8 +124,10 @@ const memberExpressionLocal=(parsedCode)=>{
     var string = parsedCode['object']['name'] + '[' + getInit(parsedCode['property']) + ']';
     if(globalDic.hasOwnProperty(string)){
         return string;
-    }else{
+    }else if (localDic.hasOwnProperty(string)){
         return localDic[string];
+    }else{
+        return string;
     }
 };
 const unaryExpressionLocal=(parsedCode)=>{
@@ -485,7 +487,11 @@ const memberExpressionGlobal=(parsedCode)=>{
     return globalDic[string];
 };
 const identifierFunctionGlobal=(parsedCode)=>{
-    return globalDic[parsedCode['name']];
+    if(globalDic.hasOwnProperty(parsedCode['name'])){
+        return globalDic[parsedCode['name']];
+    }else{
+        return localDic[parsedCode['name']];
+    }
 };
 
 
