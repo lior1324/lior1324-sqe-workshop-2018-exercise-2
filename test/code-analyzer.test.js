@@ -276,4 +276,43 @@ describe('The javascript parser', () => {
         );
     });
 
+    it('check assert string',()=>{
+        assert.equal(
+            getTextFinished('function gg (a,b){\n' +
+            '\n' +
+            'if(a==b)\n' +
+            'return 5;\n' +
+            '}','"s","s"'),
+            '<p>function gg (a,b){</p> \n' +
+            '<p style=\'background-color:#4ff955\'>if  ((a == b))</p> \n' +
+            '<p>return 5;</p> \n' +
+            '<p>}</p> \n'
+        );
+    });
+
+    it('while false not entering ',()=> {
+        assert.equal(
+            getTextFinished('function foo(x, y, z){\n' +
+                '    let a = x + 1;\n' +
+                '    let b = a + y;\n' +
+                '    let c = 0;\n' +
+                '    \n' +
+                '    while (z < y) {\n' +
+                '        if(x<y){\n' +
+                '            return 5;\n' +
+                '        }\n' +
+                '    }\n' +
+                '    \n' +
+                '    return z;\n' +
+                '}','1,2,3'),
+            '<p>function foo(x, y, z){</p> \n' +
+            '<p>while ((z < y)) {</p> \n' +
+            '<p>if  ((x < y)) {</p> \n' +
+            '<p>return 5;</p> \n' +
+            '<p>}</p> \n' +
+            '<p>}</p> \n' +
+            '<p>return z;</p> \n' +
+            '<p>}</p> \n'
+        );
+    });
 });

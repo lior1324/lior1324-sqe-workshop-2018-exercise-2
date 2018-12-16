@@ -226,10 +226,19 @@ const myEval=(parsedCode)=>{
     }else{
         var left =getInit(parsedCode['left']);
         var right=getInit(parsedCode['right']);
+        left=checkIfString(left);
+        right=checkIfString(right);
         var ans = eval(left +parsedCode['operator']+right);
         return ans;
     }
 };
+const checkIfString=(checking)=>{
+    if(typeof checking === 'string' || checking instanceof String){
+        return '\''+checking+'\'';
+    }
+    return checking;
+};
+
 const elseIfStatementFinder= (parsedCode,color)=>
 {
     if(parsedCode['type']==='IfStatement'){ // case of else if
@@ -260,8 +269,11 @@ const returnLocal=(parsedCode)=>{
     outputLines.push(newLine);
 };
 const whileLocal=(parsedCode)=>{
-    var whileTest;
+    var whileTest,stoplocal=stopColor;
     whileTest=getString(parsedCode['test']);
+    if(!myEval(parseCode(whileTest)['body'][0]['expression'])){
+        stopColor=true;
+    }
     functionRow++;
     if(parsedCode['body']['type']==='BlockStatement'){
         outputLines.push('while ('+whileTest+') {');
@@ -270,11 +282,11 @@ const whileLocal=(parsedCode)=>{
         }
         outputLines.push('}');
         functionRow++;
-    }
-    else{
+    }else{
         outputLines.push('while ('+whileTest+')');
         localTreat(parsedCode['body']);
     }
+    stopColor=stoplocal;
 };
 const smartSplit=(input)=>{
     var array='',flag=false,ans=[],splitted = input.split(',');
