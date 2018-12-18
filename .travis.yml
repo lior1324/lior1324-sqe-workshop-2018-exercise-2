@@ -13,5 +13,5 @@ script:
 notifications:
   email:
     recipients:
-      - liorkh@bgu.ac.il
+      - liorkh@post.bgu.ac.il
     on_failure: always
